@@ -100,8 +100,8 @@
     </div>
 
 <script>
-    // URL вашей базы данных Firebase (ЗАМЕНИТЕ НА СВОЙ)
-       const FIREBASE_URL = "https://football-7ea89-default-rtdb.europe-west1.firebasedatabase.app";
+    // 1. ВСТАВЬТЕ СЮДА ВАШУ ЛИЧНУЮ ССЫЛКУ ИЗ FIREBASE
+    const FIREBASE_URL = "https://football-7ea89-default-rtdb.europe-west1.firebasedatabase.app";
 
     let teams = ["Команда 1", "Команда 2", "Команда 3"];
     let games = [];
@@ -129,23 +129,57 @@
         let pin = prompt("Введите пароль судьи:");
         if (pin === "777") {
             document.body.classList.add('is-judge');
-            alert("Режим судьи активирован!");
+            alert("Режим судьи активирован! Добавлена кнопка обнуления турнира в самом низу панели судьи.");
+            
+            // Показываем кнопку сброса для судьи
+            let resetBtn = document.getElementById('admin-reset-box');
+            if (resetBtn) resetBtn.style.display = 'block';
+            
+            buildSelects();
             refresh();
         } else {
             alert("Неверный пароль!");
         }
     }
 
-    // Отправка данных в облако (добавлен .json в конце ссылки - это убирает блокировку CORS)
+    // Отправка данных в облако
     async function syncToCloud() {
         if (!document.body.classList.contains('is-judge')) return;
         await fetch(`${FIREBASE_URL}/tournament.json`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ teams, games, timeCurrent })
         });
+    }
+
+    // Функция ПОЛНОГО ОБНУЛЕНИЯ турнира в облаке
+    async function clearAllTournamentData() {
+        if (!document.body.classList.contains('is-judge')) return;
+        
+        let confirmReset = confirm("Вы уверены, что хотите ПОЛНОСТЬЮ обнулить турнир? Все сыгранные матчи и очки сотрутся навсегда!");
+        if (!confirmReset) return;
+
+        games = [];
+        teams = ["Команда 1", "Команда 2", "Команда 3"];
+        timeCurrent = timeMax;
+        if (clockId) {
+            clearInterval(clockId);
+            clockId = null;
+            let b = document.getElementById('timer-btn');
+            if (b) { b.innerText = "Старт"; b.style.background = "#28a745"; }
+        }
+
+        // Записываем пустые данные в Firebase
+        await fetch(`${FIREBASE_URL}/tournament.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ teams, games: [], timeCurrent: timeMax })
+        });
+
+        alert("Турнир успешно обнулен в облаке для всех устройств!");
+        buildSelects();
+        showTime();
+        refresh();
     }
 
     // Прослушивание обновлений из облака для болельщиков
@@ -161,11 +195,14 @@
                         timeCurrent = cloudData.timeCurrent || timeMax;
                         showTime();
                     }
-                    
-                    // ИСПРАВЛЕНИЕ: Перестраиваем меню команд ТОЛЬКО если пользователь НЕ судья
                     if (!document.body.classList.contains('is-judge')) {
                         buildSelects();
                     }
+                    refresh();
+                } else {
+                    // Если в облаке пусто (после сброса), очищаем интерфейс локально
+                    games = [];
+                    if (!clockId) { timeCurrent = timeMax; showTime(); }
                     refresh();
                 }
             } catch (e) { 
@@ -186,19 +223,16 @@
         refresh();
     }
 
-    // Заполнение выпадающих списков
     function buildSelects() {
         let select1 = document.getElementById('t1');
         let select2 = document.getElementById('t2');
         if (!select1 || !select2) return;
-        
-        // ИСПРАВЛЕНИЕ: Если судья уже открыл панель, не перезаписываем его выбор каждую секунду
         if (select1.options.length > 0 && document.body.classList.contains('is-judge')) return;
         
         let html = teams.map(t => `<option value="${t}">${t}</option>`).join('');
         select1.innerHTML = html;
         select2.innerHTML = html;
-        if (select2.options.length > 1) select2.selectedIndex = 1; // ставим вторую команду по умолчанию
+        if (select2.options.length > 1) select2.selectedIndex = 1;
     }
 
     function changeVal(id, delta) {
@@ -227,7 +261,7 @@
 
     function dropRow(id) {
         if (!document.body.classList.contains('is-judge')) return;
-        games = games.filter(g => g.id !== id);
+        games = games.filter(g => g.id !== Number(id) && g.id !== id);
         syncToCloud();
         refresh();
     }
@@ -291,18 +325,11 @@
                 data[g.t2].gf += g.s2; 
                 data[g.t2].ga += g.s1;
                 if (g.s1 > g.s2) { 
-                    data[g.t1].w++; 
-                    data[g.t1].pts += 3; 
-                    data[g.t2].l++; 
+                    data[g.t1].w++; data[g.t1].pts += 3; data[g.t2].l++; 
                 } else if (g.s1 < g.s2) { 
-                    data[g.t2].w++; 
-                    data[g.t2].pts += 3; 
-                    data[g.t1].l++; 
+                    data[g.t2].w++; data[g.t2].pts += 3; data[g.t1].l++; 
                 } else { 
-                    data[g.t1].d++; 
-                    data[g.t1].pts += 1; 
-                    data[g.t2].d++; 
-                    data[g.t2].pts += 1; 
+                    data[g.t1].d++; data[g.t1].pts += 1; data[g.t2].d++; data[g.t2].pts += 1; 
                 }
             }
         });
@@ -326,7 +353,7 @@
             games.map(g => `
                 <div class="match">
                     <span><b>${g.t1}</b> ${g.s1} : ${g.s2} <b>${g.t2}</b></span>
-                    ${isJ ? `<button class="btn-del" onclick="dropRow('\${g.id}')">🗑️</button>` : ''}
+                    ${isJ ? `<button class="btn-del" onclick="dropRow('${g.id}')">🗑️</button>` : ''}
                 </div>
             `).join('');
     }
@@ -336,6 +363,19 @@
         showTime(); 
         refresh(); 
         startCloudListener(); 
+// Создаем кнопку сброса турнира динамически в панели судьи
+        let cardJudge = document.querySelector('.card.judge-only');
+        if (cardJudge) {
+            let div = document.createElement('div');
+            div.id = 'admin-reset-box';
+            div.style.cssText = 'display:none; margin-top:15px; border-top:1px dashed #ccc; padding-top:15px;';
+            div.innerHTML = `
+                <button class="btn-main" style="background:var(--dng);" onclick="clearAllTournamentData()">
+                    🗑️ Обнулить весь турнир
+                </button>
+            `;
+            cardJudge.appendChild(div);
+        }
     };
 </script>
 </body>
