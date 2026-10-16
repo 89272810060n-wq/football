@@ -145,10 +145,14 @@
     // Отправка данных в облако
     async function syncToCloud() {
         if (!document.body.classList.contains('is-judge')) return;
+        
+        // Очищаем пустые элементы в массиве перед отправкой в облако
+        let cleanGames = games.filter(g => g !== null && g !== undefined);
+        
         await fetch(`${FIREBASE_URL}/tournament.json`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ teams, games, timeCurrent })
+            body: JSON.stringify({ teams, games: cleanGames, timeCurrent })
         });
     }
 
@@ -259,15 +263,19 @@
         refresh();
     }
 
-    function dropRow(id) {
+    // Удаление одной строчки из истории (ИСПРАВЛЕНО: Безопасное удаление по индексу)
+    function dropRow(indexToDelete) {
         if (!document.body.classList.contains('is-judge')) return;
         
-        // Удаляем матч из локального массива по ID или по его индексу
-        games = games.filter((g, index) => g.id != id && index != id);
+        // Преобразуем входящий ID в число для точного сравнения
+        let idx = Number(indexToDelete);
         
-        // Мгновенно отправляем обновленный список в облако Firebase
-        syncToCloud();
+        // Удаляем матч из локального массива
+        games.splice(idx, 1);
+        
+        // Мгновенно обновляем интерфейс у себя и отправляем чистые данные в облако
         refresh();
+        syncToCloud();
     }
 
     function runTimer() {
@@ -322,6 +330,9 @@
         let data = {};
         teams.forEach(t => data[t] = { w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 });
 
+        // ИСПРАВЛЕНО: Фильтруем массив от возможных пустых ответов сервера (null)
+        games = games.filter(g => g !== null && g !== undefined);
+
         games.forEach(g => {
             if (data[g.t1] && data[g.t2]) {
                 data[g.t1].gf += g.s1; 
@@ -354,18 +365,14 @@
         let isJ = document.body.classList.contains('is-judge');
         let h = document.getElementById('history-list');
         
-        // ИСПРАВЛЕНО: Правильный вывод ID матча без лишних экранирований
+        // ИСПРАВЛЕНО: Передаем чистый индекс массива в функцию удаления dropRow(index)
         h.innerHTML = games.length === 0 ? '<p style="text-align:center; color:#888;">Матчей пока нет</p>' : 
-            games.map((g, index) => {
-                // Если у матча нет уникального id от Firebase, берем его порядковый индекс
-                let matchId = g.id ? g.id : index; 
-                return `
-                    <div class="match">
-                        <span><b>${g.t1}</b> ${g.s1} : ${g.s2} <b>${g.t2}</b></span>
-                        ${isJ ? `<button class="btn-del" onclick="dropRow('\${matchId}')">🗑️</button>` : ''}
-                    </div>
-                `;
-            }).join('');
+            games.map((g, index) => `
+                <div class="match">
+                    <span><b>${g.t1}</b> ${g.s1} : ${g.s2} <b>${g.t2}</b></span>
+                    ${isJ ? `<button class="btn-del" onclick="dropRow('\${index}')">🗑️</button>` : ''}
+                </div>
+            `).join('');
     }
 
     // Безопасный запуск логики приложения при полной загрузке страницы
