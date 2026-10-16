@@ -353,28 +353,30 @@
             games.map(g => `
                 <div class="match">
                     <span><b>${g.t1}</b> ${g.s1} : ${g.s2} <b>${g.t2}</b></span>
-                    ${isJ ? `<button class="btn-del" onclick="dropRow('${g.id}')">🗑️</button>` : ''}
+                    ${isJ ? `<button class="btn-del" onclick="dropRow('\${g.id}')">🗑️</button>` : ''}
                 </div>
             `).join('');
     }
 
+    // Безопасный запуск логики приложения при полной загрузке страницы
     window.onload = function() { 
         buildSelects(); 
         showTime(); 
         refresh(); 
         startCloudListener(); 
-// Создаем кнопку сброса турнира динамически в панели судьи
-        let cardJudge = document.querySelector('.card.judge-only');
-        if (cardJudge) {
+        
+        // Создаем кнопку сброса динамически в самом низу страницы (под историей)
+        let mainBody = document.body;
+        if (mainBody) {
             let div = document.createElement('div');
             div.id = 'admin-reset-box';
-            div.style.cssText = 'display:none; margin-top:15px; border-top:1px dashed #ccc; padding-top:15px;';
+            div.style.cssText = 'display:none; margin:20px 10px; padding-top:10px;';
             div.innerHTML = `
-                <button class="btn-main" style="background:var(--dng);" onclick="clearAllTournamentData()">
-                    🗑️ Обнулить весь турнир
+                <button class="btn-main" style="background:var(--dng); margin-bottom: 20px;" onclick="clearAllTournamentData()">
+                    ⚠ Опасная зона: Обнулить весь турнир
                 </button>
             `;
-            cardJudge.appendChild(div);
+            mainBody.appendChild(div);
         }
     };
 </script>
