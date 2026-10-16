@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Футбольный Турнир Онлайн</title>
+    <style>
+        :root { --prm: #007bff; --suc: #28a745; --dng: #dc3545; --drk: #343a40; }
+        body { font-family: -apple-system, sans-serif; margin: 10px; background: #f0f2f5; padding-bottom: 95px; }
+        .card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .flex-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        h1 { font-size: 20px; margin: 0; }
+        h2 { font-size: 16px; margin: 0 0 10px 0; color: #555; }
+        .btn-set { background: #e9ecef; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .row { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; background: #f8f9fa; padding: 10px; border-radius: 8px; }
+        select { font-size: 16px; padding: 10px; width: 48%; border-radius: 6px; border: 1px solid #ccc; background: white; font-weight: bold; }
+        .btn-box { display: flex; align-items: center; gap: 12px; }
+        .btn-circle { width: 46px; height: 46px; border-radius: 50%; border: none; font-size: 24px; font-weight: bold; background: #e9ecef; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .score { font-size: 26px; font-weight: bold; min-width: 25px; text-align: center; }
+        .btn-main { width: 100%; padding: 14px; font-size: 16px; background: var(--prm); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        table { width: 100%; border-collapse: collapse; text-align: center; }
+        th, td { padding: 12px 5px; border-bottom: 1px solid #eee; font-size: 14px; }
+        th { background: var(--drk); color: white; }
+        .match { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 15px; }
+        .btn-del { background: none; border: none; color: var(--dng); font-size: 20px; cursor: pointer; padding: 5px; }
+        .t-pan { position: fixed; bottom: 0; left: 0; right: 0; background: var(--drk); color: white; display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; }
+        .t-disp { font-size: 30px; font-family: monospace; font-weight: bold; color: #ffc107; }
+        .t-disp.finished { color: var(--dng); animation: blk 1s infinite; }
+        .t-btn { padding: 12px 18px; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; color: white; min-width: 80px; }
+        .btn-start { background: var(--suc); }
+        .btn-reset { background: #6c757d; }
+        @keyframes blk { 50% { opacity: 0.3; } }
+        
+        /* Скрытие панели судьи для обычных болельщиков */
+        .judge-only { display: none; }
+        body.is-judge .judge-only { display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="flex-hdr">
+        <h1>🏆 Турнир по кругу ОНЛАЙН</h1>
+        <button class="btn-set judge-only" onclick="editNames()">⚙️ Имена команд</button>
+        <button class="btn-set" style="background: #ffc107;" onclick="activateJudgeMode()">🔑 Я Судья</button>
+    </div>
+
+    <!-- ВВОД МАТЧА (ТОЛЬКО ДЛЯ СУДЬИ) -->
+    <div class="card judge-only">
+        <h2>Ввод результата матча (Панель Судьи)</h2>
+        <div class="row">
+            <select id="t1"></select>
+            <div class="btn-box">
+                <button class="btn-circle" onclick="changeVal('s1', -1)">-</button>
+                <span id="s1" class="score">0</span>
+                <button class="btn-circle" onclick="changeVal('s1', 1)">+</button>
+            </div>
+        </div>
+        <div style="text-align:center; font-weight:bold; color:#888; font-size:14px; margin: 4px 0;">против</div>
+        <div class="row">
+            <select id="t2"></select>
+            <div class="btn-box">
+                <button class="btn-circle" onclick="changeVal('s2', -1)">-</button>
+                <span id="s2" class="score">0</span>
+                <button class="btn-circle" onclick="changeVal('s2', 1)">+</button>
+            </div>
+        </div>
+        <button class="btn-main" onclick="saveMatchData()">Сохранить матч в облако</button>
+    </div>
+
+    <!-- ТАБЛИЦА (ВИДЯТ ВСЕ) -->
+    <div class="card" style="overflow-x: auto;">
+        <h2>Таблица результатов</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding-left:10px;">Команда</th>
+                    <th>В</th><th>Н</th><th>П</th><th>Мячи</th><th>Очки</th>
+                </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
+
+    <!-- ИСТОРИЯ МАТЧЕЙ (ВИДЯТ ВСЕ) -->
+    <div class="card">
+        <h2>История матчей</h2>
+        <div id="history-list"></div>
+    </div>
+
+    <!-- ТАЙМЕР -->
+    <div class="t-pan">
+        <div>
+            <span style="font-size: 11px; display: block; color: #aaa; font-weight: bold;">ТАЙМЕР МАТЧА</span>
+            <div id="timer-display" class="t-disp">07:00</div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button id="timer-btn" class="t-btn btn-start judge-only" onclick="runTimer()">Старт</button>
+            <button class="t-btn btn-reset judge-only" onclick="clearTimer()">Сброс</button>
+        </div>
+    </div>
+
+<script>
+    // URL вашей базы данных Firebase (ЗАМЕНИТЕ НА СВОЙ)
+    const FIREBASE_URL = "https://console.firebase.google.com/project/football-7ea89/database/football-7ea89-default-rtdb/data/~2F";
+
+    let teams = ["Команда 1", "Команда 2", "Команда 3"];
+    let games = [];
+    let timeMax = 7 * 60;
+    let timeCurrent = timeMax;
+    let clockId = null;
+
+    const audioObj = new (window.AudioContext || window.webkitAudioContext)();
+    function beep() {
+        if (audioObj.state === 'suspended') audioObj.resume();
+        let osc = audioObj.createOscillator(); let vol = audioObj.createGain();
+        osc.connect(vol); vol.connect(audioObj.destination);
+        osc.frequency.setValueAtTime(900, audioObj.currentTime);
+        vol.gain.setValueAtTime(1, audioObj.currentTime); osc.start();
+        vol.gain.exponentialRampToValueAtTime(0.001, audioObj.currentTime + 1.5);
+        osc.stop(audioObj.currentTime + 1.5);
+    }
+
+    // Режим судьи: защищает кнопки ввода от случайных кликов болельщиков
+    function activateJudgeMode() {
+        let pin = prompt("Введите пароль судьи (придумайте любой):");
+        if (pin) {
+            document.body.classList.add('is-judge');
+            alert("Режим судьи активирован! Вам доступны функции ввода и управления таймером.");
+        }
+    }
+
+    // Отправка данных в облако Firebase
+    async function syncToCloud() {
+        if (!document.body.classList.contains('is-judge')) return;
+        await fetch(`${FIREBASE_URL}/tournament.json`, {
+            method: 'PUT',
+            body: JSON.stringify({ teams, games, timeCurrent })
+        });
+    }
+
+    // Постоянное прослушивание обновлений из облака (для болельщиков)
+    function startCloudListener() {
+        setInterval(async () => {
+            try {
+                let res = await fetch(`${FIREBASE_URL}/tournament.json`);
+                let cloudData = await res.json();
+                if (cloudData) {
+                    if (cloudData.teams) teams = cloudData.teams;
+                    games = cloudData.games ? Object.values(cloudData.games) : [];
+                    
+                    // Если таймер запущен у судьи, синхронизируем время у болельщиков
+                    if (!clockId) {
+                        timeCurrent = cloudData.timeCurrent || timeMax;
+                        showTime();
+                    }
+                    buildSelects();
+                    refresh();
+                }
+            } catch (e) { console.log("Синхронизация..."); }
+        }, 2000); // Проверка обновлений каждые 2 секунды
+    }
+
+    function editNames() {
+        let p1 = prompt("Команда 1:", teams[0]);
+        let p2 = prompt("Команда 2:", teams[1]);
+        let p3 = prompt("Команда 3:", teams[2]);
+        if (p1 && p1.trim()) teams[0] = p1.trim();
+        if (p2 && p2.trim()) teams[1] = p2.trim();
+        if (p3 && p3.trim()) teams[2] = p3.trim();
+        buildSelects();
+        syncToCloud();
+        refresh();
+    }
+
+    function buildSelects() {
+        let html = teams.map(t => `<option value="${t}">${t}</option>`).join('');
+        document.getElementById('t1').innerHTML = html;
+        document.getElementById('t2').innerHTML = html;
+        document.getElementById('t2').selectedIndex = 1;
+    }
+
+    function changeVal(id, delta) {
+        let node = document.getElementById(id);
+        let val = parseInt(node.innerText) + delta;
+        node.innerText = val < 0 ? 0 : val;
+    }
+
+    function saveMatchData() {
+        let teamA = document.getElementById('t1').value;
+        let teamB = document.getElementById('t2').value;
+        let sA = parseInt(document.getElementById('s1').innerText);
+        let sB = parseInt(document.getElementById('s2').innerText);
+
+        if (teamA === teamB) { alert("Ошибка: Одна и та же команда!"); return; }
+
+        games.push({ id: Date.now(), t1: teamA, s1: sA, t2: teamB, s2: sB });
+        document.getElementById('s1').innerText = "0";
+        document.getElementById('s2').innerText = "0";
+        syncToCloud();
+        refresh();
+    }
+
+    function dropRow(id) {
+        if (!document.body.classList.contains('is-judge')) return;
+        games = games.filter(g => g.id !== id);
+        syncToCloud();
+        refresh();
+    }
+
+    function runTimer() {
+        if (audioObj.state === 'suspended') audioObj.resume();
+        let b = document.getElementById('timer-btn');
+        if (clockId) {
+            clearInterval(clockId); clockId = null;
+b.innerText = "Старт"; 
+            b.style.background = "#28a745";
+            syncToCloud();
+        } else {
+            if (timeCurrent <= 0) clearTimer();
+            b.innerText = "Пауза"; 
+            b.style.background = "#6c757d";
+            clockId = setInterval(() => {
+                timeCurrent--;
+                showTime();
+                
+                // Синхронизируем время в облаке каждые 5 сек
+                if (timeCurrent % 5 === 0) syncToCloud(); 
+                
+                if (timeCurrent <= 0) {
+                    clearInterval(clockId); 
+                    clockId = null;
+                    b.innerText = "Старт"; 
+                    b.style.background = "#28a745";
+                    document.getElementById('timer-display').classList.add('finished');
+                    beep();
+                    syncToCloud();
+                }
+            }, 1000);
+        }
+    }
+
+    function clearTimer() {
+        clearInterval(clockId); 
+        clockId = null; 
+        timeCurrent = timeMax;
+        document.getElementById('timer-btn').innerText = "Старт";
+        document.getElementById('timer-btn').style.background = "#28a745";
+        document.getElementById('timer-display').classList.remove('finished');
+        showTime();
+        syncToCloud();
+    }
+
+    function showTime() {
+        let m = Math.floor(timeCurrent / 60);
+        let s = timeCurrent % 60;
+        document.getElementById('timer-display').innerText = 
+            `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function refresh() {
+        let data = {};
+        teams.forEach(t => data[t] = { w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 });
+
+        games.forEach(g => {
+            if (data[g.t1] && data[g.t2]) {
+                data[g.t1].gf += g.s1; 
+                data[g.t1].ga += g.s2;
+                data[g.t2].gf += g.s2; 
+                data[g.t2].ga += g.s1;
+                
+                if (g.s1 > g.s2) { 
+                    data[g.t1].w++; 
+                    data[g.t1].pts += 3; 
+                    data[g.t2].l++; 
+                } else if (g.s1 < g.s2) { 
+                    data[g.t2].w++; 
+                    data[g.t2].pts += 3; 
+                    data[g.t1].l++; 
+                } else { 
+                    data[g.t1].d++; 
+                    data[g.t1].pts += 1; 
+                    data[g.t2].d++; 
+                    data[g.t2].pts += 1; 
+                }
+            }
+        });
+
+        // Сортировка: очки, затем забитые мячи
+        let order = [...teams].sort((x, y) => (data[y].pts !== data[x].pts) ? data[y].pts - data[x].pts : data[y].gf - data[x].gf);
+
+        // Корректная генерация строк таблицы
+        document.getElementById('table-body').innerHTML = order.map(t => `
+            <tr>
+                <td style="text-align:left; padding-left:10px; font-weight:bold;">${t}</td>
+                <td>${data[t].w}</td>
+                <td>${data[t].d}</td>
+                <td>${data[t].l}</td>
+                <td style="color:#666;"><b>${data[t].gf}</b>:${data[t].ga}</td>
+                <td style="font-weight:bold; color:var(--prm); font-size:16px;">${data[t].pts}</td>
+            </tr>
+        `).join('');
+
+        let isJ = document.body.classList.contains('is-judge');
+        let h = document.getElementById('history-list');
+        
+        // Корректная генерация истории матчей
+        h.innerHTML = games.length === 0 ? '<p style="text-align:center; color:#888;">Матчей пока нет</p>' :
+            games.map(g => `
+                <div class="match">
+                    <span><b>${g.t1}</b> ${g.s1} : ${g.s2} <b>${g.t2}</b></span>
+                    ${isJ ? `<button class="btn-del" onclick="dropRow(\${g.id})">🗑️</button>` : ''}
+                </div>
+            `).join('');
+    }
+
+    // Запуск при полной загрузке страницы
+    window.onload = function() { 
+        buildSelects(); 
+        showTime(); 
+        refresh(); 
+        startCloudListener(); 
+    };
+</script>
+</body>
+</html>
