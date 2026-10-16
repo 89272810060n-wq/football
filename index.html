@@ -350,14 +350,18 @@
         let isJ = document.body.classList.contains('is-judge');
         let h = document.getElementById('history-list');
         
-        // ИСПРАВЛЕНО: Убрано ошибочное экранирование знака доллара в onclick
+        // ИСПРАВЛЕНО: Правильный вывод ID матча без лишних экранирований
         h.innerHTML = games.length === 0 ? '<p style="text-align:center; color:#888;">Матчей пока нет</p>' : 
-            games.map(g => `
-                <div class="match">
-                    <span><b>${g.t1}</b> ${g.s1} : ${g.s2} <b>${g.t2}</b></span>
-                    ${isJ ? `<button class="btn-del" onclick="dropRow('\${g.id}')">🗑️</button>` : ''}
-                </div>
-            `).join('');
+            games.map((g, index) => {
+                // Если у матча нет уникального id от Firebase, берем его порядковый индекс
+                let matchId = g.id ? g.id : index; 
+                return `
+                    <div class="match">
+                        <span><b>${g.t1}</b> ${g.s1} : ${g.s2} <b>${g.t2}</b></span>
+                        ${isJ ? `<button class="btn-del" onclick="dropRow('\${matchId}')">🗑️</button>` : ''}
+                    </div>
+                `;
+            }).join('');
     }
 
     // Безопасный запуск логики приложения при полной загрузке страницы
