@@ -222,21 +222,36 @@
         if (p1 && p1.trim()) teams[0] = p1.trim();
         if (p2 && p2.trim()) teams[1] = p2.trim();
         if (p3 && p3.trim()) teams[2] = p3.trim();
-        buildSelects();
+        
+        // Передаем true, чтобы принудительно обновить выпадающие списки новыми именами
+        buildSelects(true); 
         syncToCloud();
         refresh();
     }
 
-    function buildSelects() {
+     function buildSelects(force = false) {
         let select1 = document.getElementById('t1');
         let select2 = document.getElementById('t2');
         if (!select1 || !select2) return;
-        if (select1.options.length > 0 && document.body.classList.contains('is-judge')) return;
+        
+        // ИСПРАВЛЕНО: Если мы НЕ обновляем принудительно (force), то защищаем выбор судьи от автообновления
+        if (!force && select1.options.length > 0 && document.body.classList.contains('is-judge')) return;
+        
+        // Запоминаем, какие команды были выбраны прямо сейчас (чтобы не сбросить их на первую в списке)
+        let val1 = select1.value;
+        let val2 = select2.value;
         
         let html = teams.map(t => `<option value="${t}">${t}</option>`).join('');
         select1.innerHTML = html;
         select2.innerHTML = html;
-        if (select2.options.length > 1) select2.selectedIndex = 1;
+        
+        // Возвращаем выбранные команды на место или ставим по умолчанию разные
+        if (!force && val1 && val2) {
+            select1.value = val1;
+            select2.value = val2;
+        } else {
+            if (select2.options.length > 1) select2.selectedIndex = 1;
+        }
     }
 
     function changeVal(id, delta) {
