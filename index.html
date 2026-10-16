@@ -101,7 +101,7 @@
 
 <script>
     // URL вашей базы данных Firebase (ЗАМЕНИТЕ НА СВОЙ)
-    const FIREBASE_URL = "https://console.firebase.google.com/project/football-7ea89/database/football-7ea89-default-rtdb/data/~2F";
+       const FIREBASE_URL = "https://football-tracker-demo-default-rtdb.europe-west1.firebasedatabase.app";
 
     let teams = ["Команда 1", "Команда 2", "Команда 3"];
     let games = [];
@@ -109,36 +109,46 @@
     let timeCurrent = timeMax;
     let clockId = null;
 
+    // Звуковой генератор
     const audioObj = new (window.AudioContext || window.webkitAudioContext)();
     function beep() {
         if (audioObj.state === 'suspended') audioObj.resume();
-        let osc = audioObj.createOscillator(); let vol = audioObj.createGain();
-        osc.connect(vol); vol.connect(audioObj.destination);
+        let osc = audioObj.createOscillator(); 
+        let vol = audioObj.createGain();
+        osc.connect(vol); 
+        vol.connect(audioObj.destination);
         osc.frequency.setValueAtTime(900, audioObj.currentTime);
-        vol.gain.setValueAtTime(1, audioObj.currentTime); osc.start();
+        vol.gain.setValueAtTime(1, audioObj.currentTime); 
+        osc.start();
         vol.gain.exponentialRampToValueAtTime(0.001, audioObj.currentTime + 1.5);
         osc.stop(audioObj.currentTime + 1.5);
     }
 
-    // Режим судьи: защищает кнопки ввода от случайных кликов болельщиков
+    // Режим судьи
     function activateJudgeMode() {
-        let pin = prompt("Введите пароль судьи (придумайте любой):");
-        if (pin) {
+        let pin = prompt("Введите пароль судьи:");
+        if (pin === "777") {
             document.body.classList.add('is-judge');
-            alert("Режим судьи активирован! Вам доступны функции ввода и управления таймером.");
+            alert("Режим судьи активирован!");
+            refresh();
+        } else {
+            alert("Неверный пароль!");
         }
     }
 
-    // Отправка данных в облако Firebase
+    // Отправка данных в облако (добавлен .json в конце ссылки - это убирает блокировку CORS)
     async function syncToCloud() {
         if (!document.body.classList.contains('is-judge')) return;
         await fetch(`${FIREBASE_URL}/tournament.json`, {
             method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({ teams, games, timeCurrent })
         });
     }
 
-    // Постоянное прослушивание обновлений из облака (для болельщиков)
+    // Прослушивание обновлений из облака для болельщиков
     function startCloudListener() {
         setInterval(async () => {
             try {
@@ -147,8 +157,6 @@
                 if (cloudData) {
                     if (cloudData.teams) teams = cloudData.teams;
                     games = cloudData.games ? Object.values(cloudData.games) : [];
-                    
-                    // Если таймер запущен у судьи, синхронизируем время у болельщиков
                     if (!clockId) {
                         timeCurrent = cloudData.timeCurrent || timeMax;
                         showTime();
@@ -156,8 +164,10 @@
                     buildSelects();
                     refresh();
                 }
-            } catch (e) { console.log("Синхронизация..."); }
-        }, 2000); // Проверка обновлений каждые 2 секунды
+            } catch (e) { 
+                console.log("Синхронизация данных..."); 
+            }
+        }, 2000);
     }
 
     function editNames() {
@@ -173,10 +183,13 @@
     }
 
     function buildSelects() {
+        let select1 = document.getElementById('t1');
+        let select2 = document.getElementById('t2');
+        if (!select1 || !select2) return;
+        
         let html = teams.map(t => `<option value="${t}">${t}</option>`).join('');
-        document.getElementById('t1').innerHTML = html;
-        document.getElementById('t2').innerHTML = html;
-        document.getElementById('t2').selectedIndex = 1;
+        select1.innerHTML = html;
+        select2.innerHTML = html;
     }
 
     function changeVal(id, delta) {
@@ -191,7 +204,10 @@
         let sA = parseInt(document.getElementById('s1').innerText);
         let sB = parseInt(document.getElementById('s2').innerText);
 
-        if (teamA === teamB) { alert("Ошибка: Одна и та же команда!"); return; }
+        if (teamA === teamB) { 
+            alert("Ошибка: Одна и та же команда!"); 
+            return; 
+        }
 
         games.push({ id: Date.now(), t1: teamA, s1: sA, t2: teamB, s2: sB });
         document.getElementById('s1').innerText = "0";
@@ -211,8 +227,9 @@
         if (audioObj.state === 'suspended') audioObj.resume();
         let b = document.getElementById('timer-btn');
         if (clockId) {
-            clearInterval(clockId); clockId = null;
-b.innerText = "Старт"; 
+            clearInterval(clockId); 
+            clockId = null;
+            b.innerText = "Старт"; 
             b.style.background = "#28a745";
             syncToCloud();
         } else {
@@ -222,10 +239,7 @@ b.innerText = "Старт";
             clockId = setInterval(() => {
                 timeCurrent--;
                 showTime();
-                
-                // Синхронизируем время в облаке каждые 5 сек
                 if (timeCurrent % 5 === 0) syncToCloud(); 
-                
                 if (timeCurrent <= 0) {
                     clearInterval(clockId); 
                     clockId = null;
@@ -267,7 +281,6 @@ b.innerText = "Старт";
                 data[g.t1].ga += g.s2;
                 data[g.t2].gf += g.s2; 
                 data[g.t2].ga += g.s1;
-                
                 if (g.s1 > g.s2) { 
                     data[g.t1].w++; 
                     data[g.t1].pts += 3; 
@@ -285,10 +298,8 @@ b.innerText = "Старт";
             }
         });
 
-        // Сортировка: очки, затем забитые мячи
         let order = [...teams].sort((x, y) => (data[y].pts !== data[x].pts) ? data[y].pts - data[x].pts : data[y].gf - data[x].gf);
 
-        // Корректная генерация строк таблицы
         document.getElementById('table-body').innerHTML = order.map(t => `
             <tr>
                 <td style="text-align:left; padding-left:10px; font-weight:bold;">${t}</td>
@@ -302,18 +313,15 @@ b.innerText = "Старт";
 
         let isJ = document.body.classList.contains('is-judge');
         let h = document.getElementById('history-list');
-        
-        // Корректная генерация истории матчей
-        h.innerHTML = games.length === 0 ? '<p style="text-align:center; color:#888;">Матчей пока нет</p>' :
+        h.innerHTML = games.length === 0 ? '<p style="text-align:center; color:#888;">Матчей пока нет</p>' : 
             games.map(g => `
                 <div class="match">
                     <span><b>${g.t1}</b> ${g.s1} : ${g.s2} <b>${g.t2}</b></span>
-                    ${isJ ? `<button class="btn-del" onclick="dropRow(\${g.id})">🗑️</button>` : ''}
+                    ${isJ ? `<button class="btn-del" onclick="dropRow('\${g.id}')">🗑️</button>` : ''}
                 </div>
             `).join('');
     }
 
-    // Запуск при полной загрузке страницы
     window.onload = function() { 
         buildSelects(); 
         showTime(); 
