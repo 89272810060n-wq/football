@@ -349,6 +349,8 @@
 
         let isJ = document.body.classList.contains('is-judge');
         let h = document.getElementById('history-list');
+        
+        // ИСПРАВЛЕНО: Убрано ошибочное экранирование знака доллара в onclick
         h.innerHTML = games.length === 0 ? '<p style="text-align:center; color:#888;">Матчей пока нет</p>' : 
             games.map(g => `
                 <div class="match">
