@@ -261,7 +261,11 @@
 
     function dropRow(id) {
         if (!document.body.classList.contains('is-judge')) return;
-        games = games.filter(g => g.id !== Number(id) && g.id !== id);
+        
+        // Удаляем матч из локального массива по ID или по его индексу
+        games = games.filter((g, index) => g.id != id && index != id);
+        
+        // Мгновенно отправляем обновленный список в облако Firebase
         syncToCloud();
         refresh();
     }
