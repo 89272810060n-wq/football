@@ -161,7 +161,11 @@
                         timeCurrent = cloudData.timeCurrent || timeMax;
                         showTime();
                     }
-                    buildSelects();
+                    
+                    // ИСПРАВЛЕНИЕ: Перестраиваем меню команд ТОЛЬКО если пользователь НЕ судья
+                    if (!document.body.classList.contains('is-judge')) {
+                        buildSelects();
+                    }
                     refresh();
                 }
             } catch (e) { 
@@ -182,14 +186,19 @@
         refresh();
     }
 
+    // Заполнение выпадающих списков
     function buildSelects() {
         let select1 = document.getElementById('t1');
         let select2 = document.getElementById('t2');
         if (!select1 || !select2) return;
         
+        // ИСПРАВЛЕНИЕ: Если судья уже открыл панель, не перезаписываем его выбор каждую секунду
+        if (select1.options.length > 0 && document.body.classList.contains('is-judge')) return;
+        
         let html = teams.map(t => `<option value="${t}">${t}</option>`).join('');
         select1.innerHTML = html;
         select2.innerHTML = html;
+        if (select2.options.length > 1) select2.selectedIndex = 1; // ставим вторую команду по умолчанию
     }
 
     function changeVal(id, delta) {
